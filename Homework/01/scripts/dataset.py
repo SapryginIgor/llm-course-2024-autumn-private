@@ -46,7 +46,9 @@ class MyDataset(Dataset):
         self.data = []
         for text in tqdm(texts):
             # Получаем список токенов (номеров) для данного текста и добавляем к началу и концу спецтокены bos, eos (см. пример)
-            token_ids = <YOUR CODE HERE>
+            token_ids = tokenizer.encode(text)
+            token_ids.insert(0, tokenizer.bos_token_id)
+            token_ids.insert(len(token_ids), tokenizer.eos_token_id)
             self.data.append(token_ids)
 
     def __getitem__(self, idx: int) -> List[int]:
@@ -63,8 +65,8 @@ class MyDataset(Dataset):
         List[int]
             Усеченный список номеров токенов
         """
-        return <YOUR CODE HERE>
+        return self.data[idx][:self.max_length]
 
     def __len__(self) -> int:
         """Возвращает количество текстов в наборе данных."""
-        return <YOUR CODE HERE>
+        return len(self.data)
