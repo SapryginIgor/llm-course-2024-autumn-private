@@ -44,7 +44,7 @@ class TestTokenizer(TestCase):
             tokenizer.encode('aaaaababcd'),
             [259, 259, 97, 98, 97, 98, 99, 100]
         )
-
+        #
         tokenizer.train(data, max_vocab=261)
         self.assertEqual(
             tokenizer.encode('aaaaababcd'),
@@ -62,3 +62,16 @@ class TestTokenizer(TestCase):
             tokenizer.encode('aaaaababcd'),
             [259, 259, 261, 99, 100]
         )
+
+        tokenizer = BpeTokenizer()
+        tokenizer.train(["Мама мыла раму"], max_vocab=300)
+        encoded = tokenizer.encode("Мама мыла раму")
+        print(encoded)
+        # [208, 156, 261, 262, 260, 209, 139, 208, 187, 262, 209, 128, 261, 209, 131]
+
+        decoded = tokenizer.decode(encoded)
+        print(decoded)
+        # 'Мама мыла раму'
+
+        vocab_size = tokenizer.get_vocab_size()
+        print(vocab_size)
