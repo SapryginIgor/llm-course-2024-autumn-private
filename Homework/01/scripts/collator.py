@@ -4,6 +4,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch import Tensor
 
 
+
 class Collator:
     """
     Класс Collator используется для дополнения (padding) списков разной длины
