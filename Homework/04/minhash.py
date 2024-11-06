@@ -1,6 +1,7 @@
 import re
 import pandas as pd
 import numpy as np
+from torch.ao.nn.quantized.functional import threshold
 
 
 class MinHash:
@@ -21,6 +22,15 @@ class MinHash:
         id документа - нумерация в списке начиная с нуля
         '''
         # TODO:
+        di = {}
+        n = len(corpus_of_texts)
+        for id,text in enumerate(corpus_of_texts):
+            tokens = self.tokenize(text)
+            for token in tokens:
+                if token not in di:
+                    di[token] = {i: 0 for i in range(n)}
+                di[token][id]+=1
+        df = pd.DataFrame.from_dict(di, orient='index')
         df.sort_index(inplace=True)
         return df
     
@@ -57,8 +67,9 @@ class MinHash:
             на выходе ожидаем количество совпадений/длину массива, для примера здесь:
             у нас 3 совпадения (1,1,3), ответ будет 3/5 = 0.6
         '''
+
         # TODO:
-        return 
+        return np.sum(array_a == array_b)/len(array_a)
 
     
     def get_similar_pairs(self, min_hash_matrix) -> list[tuple]:
@@ -66,15 +77,28 @@ class MinHash:
         Находит похожих кандидатов. Отдает список из таплов индексов похожих документов, похожесть которых > threshold.
         '''
         # TODO:
-        return 
+        cond = np.where(self.get_similar_matrix(min_hash_matrix) > self.threshold)
+
+        return list(filter(lambda x: x[0] != x[1], list(zip(cond[0], cond[1]))))
     
     def get_similar_matrix(self, min_hash_matrix) -> list[tuple]:
         '''
         Находит похожих кандидатов. Отдает матрицу расстояний
         '''
         # TODO: 
-                
-        return 
+        n_cols = len(min_hash_matrix[0])
+        mtx = np.zeros((n_cols,n_cols))
+        for i in range(n_cols):
+            for j in range(n_cols):
+                mtx[i,j] = self.get_minhash_similarity(min_hash_matrix[:,i], min_hash_matrix[:,j])
+
+        return mtx
+
+    def find_closest_prime(self, x: int):
+        a = x
+        while not self.is_prime(a):
+            a+=1
+        return a
      
     
     def get_minhash(self, occurrence_matrix: pd.DataFrame) -> np.array:
@@ -99,7 +123,25 @@ class MinHash:
         Doc3 : 0
         '''
         # TODO:
-        return 
+        n_rows, n_cols = occurrence_matrix.shape
+
+        prime_num_rows = self.find_closest_prime(n_rows)
+        minhash_matrix = np.zeros((self.num_permutations, n_cols))
+        for perm in range(self.num_permutations):
+            new_index = np.zeros(n_rows)
+            for i in range(n_rows):
+                new_index[i] = self.get_new_index(i, perm, prime_num_rows)
+            occurrence_matrix['perm'] = new_index
+            # permuted = (occurrence_matrix.iloc[new_index])
+            permuted = occurrence_matrix.sort_values('perm')
+            permuted.drop(['perm'], axis=1, inplace=True)
+            permuted.index = np.arange(len(permuted))
+            first_occurences = permuted.ne(0).idxmax().values
+            minhash_matrix[perm] = first_occurences
+
+
+
+        return minhash_matrix
 
     
     def run_minhash(self,  corpus_of_texts: list[str]):
@@ -121,7 +163,7 @@ class MinHashJaccard(MinHash):
         Вовзращает расстояние Жаккарда для двух сетов. 
         '''
         # TODO:
-        return 
+        return len((set_a & set_b))/len(set_a | set_b)
 
     
     def get_similar_pairs(self, min_hash_matrix) -> list[tuple]:
@@ -135,7 +177,8 @@ class MinHashJaccard(MinHash):
         '''
         Находит похожих кандидатов. Отдает матрицу расстояний
         '''
-        # TODO: 
+        # TODO:
+
                 
         return 
      
