@@ -8,9 +8,18 @@ def create_prompt(sample: dict) -> str:
     Returns:
         str: A formatted string prompt for the multiple choice question.
     """
-    <ВАШ КОД ЗДЕСЬ>
-
-    return ...
+    # <ВАШ КОД ЗДЕСЬ>
+    subject = sample['subject']
+    a,b,c,d = sample['choices']
+    question = sample['question']
+    prompt = f"""The following are multiple choice questions (with answers) about {subject}.
+{question}
+A. {a}
+B. {b}
+C. {c}
+D. {d}
+Answer:"""
+    return prompt
 
 
 def create_prompt_with_examples(sample: dict, examples: list, add_full_example: bool = False) -> str:
@@ -25,6 +34,17 @@ def create_prompt_with_examples(sample: dict, examples: list, add_full_example: 
     Returns:
         str: A formatted string prompt for the multiple choice question with 5 examples.
     """
-    <ВАШ КОД ЗДЕСЬ>
+    # <ВАШ КОД ЗДЕСЬ>
 
-    return <ВАШ КОД ЗДЕСЬ>
+    # return <ВАШ КОД ЗДЕСЬ>
+    prompt = ""
+    for example in examples:
+        prompt += create_prompt(example)
+        letter = chr(ord('A') + example['answer'])
+        prompt += f" {letter}"
+        if add_full_example:
+            prompt += f". {example['choices'][example['answer']]}"
+        prompt += '\n\n'
+    prompt += create_prompt(sample)
+    return prompt
+
