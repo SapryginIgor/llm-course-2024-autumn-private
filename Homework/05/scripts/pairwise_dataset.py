@@ -1,4 +1,10 @@
+import torch
 from torch.utils.data import Dataset
+import torch
+import transformers
+import datasets
+import trl
+
 
 class IMDBPairwiseDataset(Dataset):
     """ 
@@ -24,8 +30,8 @@ class IMDBPairwiseDataset(Dataset):
     def __init__(self, imdb, tokenizer, accepted_label):
         super().__init__()
         self.tokenizer = tokenizer
-        self.chosen_texts = # <YOUR CODE HERE>
-        self.rejected_texts = # <YOUR CODE HERE>
+        self.chosen_texts = [x['text'] for x in imdb if x['label'] == accepted_label]
+        self.rejected_texts = [x['text'] for x in imdb if x['label'] != accepted_label]
 
         assert self.chosen_texts, f"no texts with label {accepted_label}"
         # print(f"Found {len(self.chosen_texts)} chosen and {len(self.rejected_texts)} rejected texts, {len(self)} pairs")
@@ -36,14 +42,53 @@ class IMDBPairwiseDataset(Dataset):
         ]
 
     def __len__(self):
-        raise NotImplementedError
-        return # <YOUR CODE HERE>  # all pairs
+        return len(self.chosen_texts)*len(self.rejected_texts)
 
     def __getitem__(self, index: int):
-        # <YOUR CODE HERE>
+        batch_chosen= self.tokenizer(self.chosen_texts[index//len(self.rejected_texts)], return_attention_mask=True)
+        chosen, chosen_attention = batch_chosen['input_ids'], batch_chosen['attention_mask']
+        batch_rejected = self.tokenizer(self.rejected_texts[index%len(self.rejected_texts)], return_attention_mask=True)
+        rejected, rejected_attention = batch_rejected['input_ids'], batch_rejected['attention_mask']
         return dict(
-            input_ids_chosen=# <YOUR CODE HERE>,
-            attention_mask_chosen=# <YOUR CODE HERE>,
-            input_ids_rejected=# <YOUR CODE HERE>,
-            attention_mask_rejected=# <YOUR CODE HERE>,
+            input_ids_chosen=chosen,
+            attention_mask_chosen=chosen_attention,
+            input_ids_rejected=rejected,
+            attention_mask_rejected=rejected_attention
         )
+
+
+if __name__ == '__main__':
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    main_tokenizer = transformers.AutoTokenizer.from_pretrained("lvwerra/gpt2-imdb")
+    main_model = transformers.AutoModelForCausalLM.from_pretrained("lvwerra/gpt2-imdb", device_map=device)
+    inputs = main_tokenizer("The movie", return_tensors='pt').to(device)
+    generated_ids = main_model.generate(**inputs, max_new_tokens=50, do_sample=True)
+    reward_model = transformers.AutoModelForSequenceClassification.from_pretrained("distilbert-base-cased",
+                                                                                   device_map=device)
+    reward_tokenizer = transformers.AutoTokenizer.from_pretrained("distilbert-base-cased")
+    TARGET_LABEL = 0  # negative reviews
+    imdb = datasets.load_dataset("imdb", split='train')
+    reward_data = IMDBPairwiseDataset(imdb, reward_tokenizer, accepted_label=TARGET_LABEL)
+    training_args = trl.RewardConfig(  # like transformers.TrainingArguments
+        output_dir="reward_model",
+        per_device_train_batch_size=32,
+        gradient_accumulation_steps=1,
+        learning_rate=1.41e-5,
+        max_steps=1_000,  # note: training may need more than 1k steps
+        logging_steps=50,
+        gradient_checkpointing=True,  # reduce memory usage but train ~30% slower
+        gradient_checkpointing_kwargs={"use_reentrant": False},
+        fp16=False,  # disable this on CPU or on very old GPUs
+        report_to='none',
+        # you may add any other hyperparameters that you found useful
+    )
+
+    trainer = trl.RewardTrainer(
+        model=reward_model,
+        args=training_args,
+        tokenizer=reward_tokenizer,
+        train_dataset=reward_data,
+        peft_config=None,  # optionally, you may tune with LoRA, prompt-tuning, etc
+    )
+
+    trainer.train()

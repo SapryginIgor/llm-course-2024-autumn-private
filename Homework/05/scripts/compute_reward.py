@@ -1,3 +1,4 @@
+
 from torch import Tensor, no_grad
 
 def compute_reward(reward_model, reward_tokenizer, texts: list[str], device='cpu') -> Tensor:
@@ -18,8 +19,7 @@ def compute_reward(reward_model, reward_tokenizer, texts: list[str], device='cpu
     >>> compute_reward(my_reward_model, my_reward_tokenizer, ["text1", "text2"])
     tensor([ 5.1836, -4.8438], device='cpu')
     """
-    raise NotImplementedError
-
-    # <YOUR CODE HERE>
+    inputs = reward_tokenizer(texts, truncation=True, padding=True, return_tensors='pt').to(device)
     with no_grad():
-        # <YOUR CODE HERE>
+        rewards = reward_model(**inputs).logits[:,0]
+    return rewards
