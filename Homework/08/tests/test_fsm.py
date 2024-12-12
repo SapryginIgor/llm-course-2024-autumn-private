@@ -20,12 +20,12 @@ def build_aboba_fsm():
     q4 = State(is_terminal=False)
     q5 = State(is_terminal=True)
 
-    q0.add_transition("a", q1)
-    q1.add_transition("b", q2)
-    q2.add_transition("o", q3)
-    q3.add_transition("b", q4)
-    q4.add_transition("a", q5)
-    q5.add_transition("a", q1)
+    q0.add_transition("a", 1)
+    q1.add_transition("b", 2)
+    q2.add_transition("o", 3)
+    q3.add_transition("b", 4)
+    q4.add_transition("a", 5)
+    q5.add_transition("a", 1)
 
     return FSM([q0, q1, q2, q3, q4, q5], initial=0)
 

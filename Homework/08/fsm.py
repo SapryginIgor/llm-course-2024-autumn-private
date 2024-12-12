@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
+from distutils.log import fatal
 from typing import Optional
 
 
 @dataclass
 class State:
     is_terminal: bool
-    transitions: dict[str, "State"] = field(default_factory=dict)
+    transitions: dict[str, int] = field(default_factory=dict)
 
     def add_transition(self, char, state):
         self.transitions[char] = state
@@ -30,7 +31,15 @@ class FSM:
         Returns:
             end (optional int): end state if possible, None otherwise
         """
-        raise NotImplementedError
+        if start is None:
+            start = self.initial
+        for c in line:
+            st = self.states[start]
+            if c in st.transitions:
+                start = st.transitions[c]
+            else:
+                return None
+        return start
 
     def accept(self, candidate: str) -> bool:
         """Check if the candidate is accepted by the FSM.
@@ -40,7 +49,10 @@ class FSM:
         Returns:
             is_accept (bool): result of checking
         """
-        raise NotImplementedError
+        res = self.move(candidate)
+        return res is not None and self.states[res].is_terminal
+
+
 
     def validate_continuation(self, state_id: int, continuation: str) -> bool:
         """Check if the continuation can be achieved from the given state.
@@ -51,7 +63,8 @@ class FSM:
         Returns:
             is_possible (bool): result of checking
         """
-        raise NotImplementedError
+
+        return self.move(continuation, state_id) is not None
 
 
 def build_odd_zeros_fsm() -> tuple[FSM, int]:
@@ -66,7 +79,14 @@ def build_odd_zeros_fsm() -> tuple[FSM, int]:
         fsm (FSM): FSM
         start_state (int): index of initial state
     """
-    raise NotImplementedError
+    qA = State(is_terminal=False)
+    qB = State(is_terminal=True)
+    qA.add_transition('0', 1)
+    qA.add_transition('1', 0)
+    qB.add_transition('1', 1)
+    qB.add_transition('0', 0)
+    fsm = FSM(states=[qA,qB],initial=0)
+    return fsm, 0
 
 
 
