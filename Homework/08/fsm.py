@@ -6,7 +6,13 @@ from typing import Optional
 @dataclass
 class State:
     is_terminal: bool
-    transitions: dict[str, int] = field(default_factory=dict)
+    transitions: dict[str, "State"] = field(default_factory=dict)
+
+    def __eq__(self, other):
+        return str(self.transitions) == str(other.transitions)
+
+    def __hash__(self):
+        return hash(str(self.transitions))
 
     def add_transition(self, char, state):
         self.transitions[char] = state
@@ -15,6 +21,9 @@ class State:
 class FSM:
     def __init__(self, states: list[State], initial: int):
         self.states = states
+        self.state_to_int = dict()
+        for i,s in enumerate(states):
+            self.state_to_int[s] = i
         self.initial = initial
 
     def is_terminal(self, state_id):
@@ -36,7 +45,7 @@ class FSM:
         for c in line:
             st = self.states[start]
             if c in st.transitions:
-                start = st.transitions[c]
+                start = self.state_to_int[st.transitions[c]]
             else:
                 return None
         return start
@@ -81,10 +90,10 @@ def build_odd_zeros_fsm() -> tuple[FSM, int]:
     """
     qA = State(is_terminal=False)
     qB = State(is_terminal=True)
-    qA.add_transition('0', 1)
-    qA.add_transition('1', 0)
-    qB.add_transition('1', 1)
-    qB.add_transition('0', 0)
+    qA.add_transition('0', qB)
+    qA.add_transition('1', qA)
+    qB.add_transition('1', qB)
+    qB.add_transition('0', qA)
     fsm = FSM(states=[qA,qB],initial=0)
     return fsm, 0
 
