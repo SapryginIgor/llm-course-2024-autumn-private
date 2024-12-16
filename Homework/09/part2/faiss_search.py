@@ -3,6 +3,8 @@ import numpy as np
 import faiss
 import pickle
 from sentence_transformers import SentenceTransformer
+from sympy.codegen.fnodes import dimension
+
 from part1.search_engine import Document, SearchResult
 
 class FAISSSearcher:
@@ -14,6 +16,7 @@ class FAISSSearcher:
         self.documents: List[Document] = []
         self.index: Optional[faiss.Index] = None
         self.dimension: int = 384  # Размерность для 'all-MiniLM-L6-v2'
+
 
     def build_index(self, documents: List[Document]) -> None:
         """
@@ -28,6 +31,20 @@ class FAISSSearcher:
             - Обучить индекс (train)
             - Добавить векторы (add)
         """
+        self.documents = documents
+        embs = []
+        for doc in documents:
+            text = doc.title + '\n' + doc.text
+            emb = self.model.encode(text)
+            embs.append(emb)
+        self.embeddings = np.array(embs)
+        faiss.normalize_L2(np.array(self.embeddings))
+        quantizer = faiss.IndexFlatIP(self.dimension)
+        index = faiss.IndexIVFFlat(quantizer, self.dimension, len(documents)//39)
+        index.train(self.embeddings)
+        index.add(self.embeddings)
+        self.index = index
+
         pass
 
     def save(self, path: str) -> None:
@@ -38,6 +55,10 @@ class FAISSSearcher:
             - documents
             - индекс (faiss.serialize_index)
         """
+        di = {'docs': self.documents, 'faiss': self.index}
+        file = open(path, 'ab')
+        pickle.dump(di, file)
+        file.close()
         pass
 
     def load(self, path: str) -> None:
@@ -48,7 +69,11 @@ class FAISSSearcher:
             - documents
             - индекс (faiss.deserialize_index)
         """
-        pass
+        file = open(path, 'rb')
+        di = pickle.load(file)
+        self.index = di['faiss']
+        self.documents = di['docs']
+        file.close()
 
     def search(self, query: str, top_k: int = 5) -> List[SearchResult]:
         """
@@ -59,7 +84,15 @@ class FAISSSearcher:
         3. Искать через index.search()
         4. Вернуть найденные документы
         """
-        pass
+        emb = self.model.encode(query).reshape(1,-1)
+        faiss.normalize_L2(emb)
+        D, I = self.index.search(emb, top_k)
+        res = []
+        for i, ind in enumerate(I[0]):
+            doc = self.documents[ind]
+            s = SearchResult(doc.id, float((D[0][i]/2)), doc.title, doc.text)
+            res.append(s)
+        return res
 
     def batch_search(self, queries: List[str], top_k: int = 5) -> List[List[SearchResult]]:
         """
@@ -70,4 +103,15 @@ class FAISSSearcher:
         3. Искать через index.search()
         4. Вернуть результаты для каждого запроса
         """
-        pass
+        emb = self.model.encode(queries)
+        faiss.normalize_L2(emb)
+        D, I = self.index.search(emb, top_k)
+        big_res = []
+        for j in range(len(D)):
+            res = []
+            for i, ind in enumerate(I[j]):
+                doc = self.documents[ind]
+                s = SearchResult(doc.id, float((D[j][i] / 2)), doc.title, doc.text)
+                res.append(s)
+            big_res.append(res)
+        return big_res
